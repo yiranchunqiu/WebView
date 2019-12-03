@@ -48,4 +48,5 @@ dependencies {
     debugImplementation   'com.squareup.leakcanary:leakcanary-android:2.0-beta-3'
     //web
     implementation project(':pxzweb')
+//    implementation 'com.github.yiranchunqiu:WebView:1.0'
 }

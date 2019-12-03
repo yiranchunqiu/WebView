@@ -1,15 +1,16 @@
 package com.pxz.pxzweb;
 
-import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.drawable.ClipDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
+import android.webkit.CookieManager;
+import android.webkit.CookieSyncManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -19,9 +20,14 @@ import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import com.franmontiel.persistentcookiejar.persistence.SharedPrefsCookiePersistor;
+
+import java.util.List;
+
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import okhttp3.Cookie;
 
 /**
  * 类说明：web页面
@@ -75,39 +81,9 @@ public class WebActivity extends AppCompatActivity {
     }
 
     private void initWeb() {
-        //状态栏
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-            vView.setVisibility(View.GONE);
-        } else {
-            vView.setVisibility(View.VISIBLE);
-        }
-        if (webViewBean.isIsleftFork()){
-            ivCha.setVisibility(View.GONE);
-        }else{
-            ivCha.setVisibility(View.VISIBLE);
-        }
-        ivLeft.setImageResource(webViewBean.getImgLeftArrow());
-        ivCha.setImageResource(webViewBean.getImgleftFork());
-        rlTitle.setBackgroundColor(ContextCompat.getColor(this, webViewBean.getTitleBackground()));
-        vView.setBackgroundColor(ContextCompat.getColor(this, webViewBean.getTitleBackground()));
-        tvTitle.setText(webViewBean.getTitleText());
-        tvTitle.setTextColor(ContextCompat.getColor(this, webViewBean.getTitleTextColor()));
+        initData();
         progressDrawable();
-        WebSettings webSettings = webViewH5.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setUseWideViewPort(true);
-        webSettings.setLoadWithOverviewMode(true);
-        webSettings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
-        // 允许访问文件
-        webSettings.setAllowFileAccess(true);
-        //自适应屏幕
-        webSettings.setUseWideViewPort(true);
-        //https+http混合图片问题
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            webSettings.setMixedContentMode(2);
-        }
-        //解除数据阻止
-        webSettings.setBlockNetworkImage(false);
+        webSetting();
         //进度条
         webViewH5.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -128,22 +104,40 @@ public class WebActivity extends AppCompatActivity {
         webViewH5.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                try{
-                    //判断前缀
-                    if(url.startsWith("baiduboxapp://")){
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        startActivity(intent);
-                        return true;
-                    }
-                }catch (Exception e){
-                    return false;
-                }
                 webViewH5.loadUrl(url);
                 return true;
             }
         });
+        //清除缓存
         webViewH5.clearCache(true);
+        removeAllCookie();
+        setCookie();
+        //设置网址
         webViewH5.loadUrl(webViewBean.getWebUrl());
+    }
+
+    /**
+     * 设置数据
+     */
+    private void initData() {
+        //状态栏
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+            vView.setVisibility(View.GONE);
+        } else {
+            vView.setVisibility(View.VISIBLE);
+        }
+        //是否显示结束按钮
+        if (webViewBean.isIsleftFork()) {
+            ivCha.setVisibility(View.GONE);
+        } else {
+            ivCha.setVisibility(View.VISIBLE);
+        }
+        ivLeft.setImageResource(webViewBean.getImgLeftArrow());
+        ivCha.setImageResource(webViewBean.getImgleftFork());
+        rlTitle.setBackgroundColor(ContextCompat.getColor(this, webViewBean.getTitleBackground()));
+        vView.setBackgroundColor(ContextCompat.getColor(this, webViewBean.getTitleBackground()));
+        tvTitle.setText(webViewBean.getTitleText());
+        tvTitle.setTextColor(ContextCompat.getColor(this, webViewBean.getTitleTextColor()));
     }
 
     /**
@@ -163,6 +157,65 @@ public class WebActivity extends AppCompatActivity {
         drawable.setDrawableByLayerId(android.R.id.progress, clipDrawable);
     }
 
+    /**
+     * 设置web属性
+     */
+    private void webSetting() {
+        WebSettings webSettings = webViewH5.getSettings();
+        //支持javascript
+        webSettings.setJavaScriptEnabled(true);
+        // 设置可以支持缩放
+        webSettings.setSupportZoom(true);
+        // 设置出现缩放工具
+        webSettings.setBuiltInZoomControls(true);
+        //扩大比例的缩放
+        webSettings.setUseWideViewPort(true);
+        //自适应屏幕
+        webSettings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
+        webSettings.setLoadWithOverviewMode(true);
+        // 允许访问文件
+        webSettings.setAllowFileAccess(true);
+        //https+http混合图片问题
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webSettings.setMixedContentMode(2);
+        }
+        //解除数据阻止
+        webSettings.setBlockNetworkImage(false);
+        //dom缓存
+        webSettings.setDomStorageEnabled(true);
+    }
+
+    /**
+     * 清除所有cookie
+     */
+    private void removeAllCookie() {
+        CookieSyncManager cookieSyncManager = CookieSyncManager.createInstance(webViewH5.getContext());
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        cookieManager.removeSessionCookie();
+        cookieManager.getCookie(webViewBean.getWebUrl());
+        cookieManager.removeAllCookie();
+        cookieSyncManager.sync();
+    }
+
+    /**
+     * 设置cookie
+     */
+    private boolean setCookie() {
+        SharedPrefsCookiePersistor sharedPrefsCookiePersistor = new SharedPrefsCookiePersistor(this);
+        List<Cookie> cookies = sharedPrefsCookiePersistor.loadAll();
+        CookieManager cookieManager = CookieManager.getInstance();
+        for (Cookie cookie : cookies) {
+            cookieManager.setCookie(webViewBean.getWebUrl(), cookie.name() + "=" + cookie.value());
+        }
+        String newCookie = cookieManager.getCookie(webViewBean.getWebUrl());
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            CookieSyncManager cookieSyncManager = CookieSyncManager.createInstance(this);
+            cookieSyncManager.sync();
+        }
+        return TextUtils.isEmpty(newCookie) ? false : true;
+    }
+
     private void initOnClick() {
         //返回
         ivLeft.setOnClickListener(view -> {
@@ -174,5 +227,14 @@ public class WebActivity extends AppCompatActivity {
         });
         //结束
         ivCha.setOnClickListener(view -> finish());
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webViewH5.canGoBack()) {
+            webViewH5.goBack();
+        } else {
+            finish();
+        }
     }
 }
