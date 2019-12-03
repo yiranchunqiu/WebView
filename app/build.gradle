@@ -5,8 +5,8 @@ android {
         applicationId "com.pxz.webview"
         minSdkVersion 15
         targetSdkVersion 29
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
     }
 
     signingConfigs {
@@ -46,6 +46,8 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:+'
     //检测内存泄漏
     debugImplementation   'com.squareup.leakcanary:leakcanary-android:2.0-beta-3'
+    //标题栏
+    implementation 'com.github.yiranchunqiu:TitleBarView:1.1'
     //web
     implementation project(':pxzweb')
 //    implementation 'com.github.yiranchunqiu:WebView:1.1'
